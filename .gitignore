@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+site/
+.cache/
+zensical.pages.toml
+labs/00-getting-started/led-blink/led-blink
+*.img
+*.img.xz
+*.wic
+*.dtb
+*.o
+*.ko
+*.log
+.DS_Store

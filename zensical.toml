@@ -1,0 +1,72 @@
+[project]
+site_name = "BeagleBone Black Linux Lab"
+site_description = "A progressive, hands-on Embedded Linux course: from first boot to your own board support package."
+site_url = "http://localhost:8000/"
+repo_url = "https://github.com/Baremetal-Core/bbb-linux-lab"
+repo_name = "bbb-linux-lab"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+use_directory_urls = true
+watch = ["labs", "templates"]
+nav = [
+  { "Home" = "index.md" },
+  { "Prerequisites" = "prerequisites.md" },
+  { "Getting started" = [
+    { "Module guide" = "00-getting-started/index.md" },
+    { "01 - Board overview" = "00-getting-started/01-board-overview.md" },
+    { "02 - First boot" = "00-getting-started/02-first-boot.md" },
+    { "03 - microSD boot" = "00-getting-started/03-microsd-boot.md" },
+    { "04 - Flash eMMC" = "00-getting-started/04-flash-emmc.md" },
+    { "05 - LED control" = "00-getting-started/05-led-control.md" },
+    { "06 - Ethernet setup" = "00-getting-started/06-ethernet-setup.md" },
+    { "07 - SSH and remote development" = "00-getting-started/07-ssh-remote-development.md" },
+  ] },
+  { "Curriculum roadmap" = "roadmap.md" },
+  { "Contributing" = "contributing.md" },
+]
+
+[project.theme]
+variant = "modern"
+language = "en"
+features = [
+  "navigation.sections",
+  "navigation.indexes",
+  "navigation.path",
+  "navigation.top",
+  "navigation.footer",
+  "search.highlight",
+  "content.code.copy",
+  "content.action.edit",
+  "content.action.view",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "teal"
+accent = "cyan"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "teal"
+accent = "cyan"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight = { anchor_linenums = true }
+pymdownx.inlinehilite = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.snippets = { base_path = ["."], check_paths = true }

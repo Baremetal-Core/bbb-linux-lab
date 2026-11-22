@@ -1,0 +1,53 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/configure-pages@v6
+        id: pages
+      - run: python -m pip install -r requirements.txt
+      - name: Configure deployment URL
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          python scripts/host/configure-site.py \
+            --site-url "$SITE_URL" --repository "$GITHUB_REPOSITORY"
+      - run: zensical build --clean --strict --config-file zensical.pages.toml
+      - run: python scripts/host/check-docs.py --config zensical.pages.toml
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment

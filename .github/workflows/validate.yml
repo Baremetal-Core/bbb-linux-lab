@@ -1,0 +1,33 @@
+name: Validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -r requirements-dev.txt
+      - run: zensical build --clean --strict
+      - run: python scripts/host/check-docs.py
+      - name: Check shell examples
+        run: |
+          shellcheck labs/00-getting-started/led-blink/blink.sh \
+            labs/00-getting-started/network-diagnostics/diagnose.sh \
+            scripts/target/board-info.sh
+          bash -n labs/00-getting-started/led-blink/blink.sh
+          bash -n labs/00-getting-started/network-diagnostics/diagnose.sh
+          bash -n scripts/target/board-info.sh
+      - run: make -C labs/00-getting-started/led-blink
+      - run: python -m unittest discover -s tests -v

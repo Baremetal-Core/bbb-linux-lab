@@ -13,10 +13,13 @@ userspace LED experiment, Ethernet connectivity, and key-based SSH.
 | [05 - LED control](05-led-control.md) | Use LED sysfs from Bash and C | Changes LED indicators |
 | [06 - Ethernet setup](06-ethernet-setup.md) | Discover and configure the active network stack | Can break SSH |
 | [07 - SSH and remote development](07-ssh-remote-development.md) | Deploy code and collect logs remotely | Key/account configuration |
+| [08 - Manual microSD assembly](08-manual-microsd.md) | Partition and populate a Buildroot card manually | **Erases selected host card** |
 
 Read [prerequisites](../prerequisites.md) first. Lessons are sequential except
 that **04 is optional**: working microSD or existing eMMC Linux is enough for
-05-07. Keep known-good microSD recovery media and a serial console.
+05-07. **08 is optional** and uses a separate Buildroot image, not the Debian
+environment in the earlier lessons. Keep known-good microSD recovery media and
+a serial console.
 
 ## Completion evidence
 

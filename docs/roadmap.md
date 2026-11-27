@@ -5,6 +5,11 @@ scoped milestones, not ready-to-run advanced labs. A milestone is complete only
 when its source, explanation, expected results, recovery procedures, and evidence
 are present.
 
+Module 00 also includes an optional, documented
+[manual microSD assembly lesson](00-getting-started/08-manual-microsd.md).
+It uses a pinned Buildroot artifact set; it is not the planned Module 08
+Buildroot course or a physically verified boot.
+
 ```mermaid
 flowchart TD
   M00[00 Getting started] --> M01[01 Linux fundamentals]

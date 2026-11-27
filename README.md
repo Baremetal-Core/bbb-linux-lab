@@ -9,8 +9,9 @@ Linux internals, drivers, Buildroot, Yocto, and a custom BSP.
 
 ## What is ready
 
-Seven introductory lessons cover hardware, existing eMMC boot, microSD boot,
-careful eMMC installation, LEDs, Ethernet, and SSH. Bash/C LED examples and
+Eight introductory lessons cover hardware, existing eMMC boot, microSD boot,
+careful eMMC installation, LEDs, Ethernet, SSH, and optional manual microSD
+assembly with Buildroot artifacts. Bash/C LED examples and
 read-only network diagnostics accompany the lessons. Advanced modules are
 explicitly **planned**, not completed lessons.
 

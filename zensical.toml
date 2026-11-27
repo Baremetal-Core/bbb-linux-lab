@@ -21,6 +21,7 @@ nav = [
     { "05 - LED control" = "00-getting-started/05-led-control.md" },
     { "06 - Ethernet setup" = "00-getting-started/06-ethernet-setup.md" },
     { "07 - SSH and remote development" = "00-getting-started/07-ssh-remote-development.md" },
+    { "08 - Manual microSD assembly" = "00-getting-started/08-manual-microsd.md" },
   ] },
   { "Curriculum roadmap" = "roadmap.md" },
   { "Contributing" = "contributing.md" },

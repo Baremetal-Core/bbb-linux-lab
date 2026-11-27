@@ -42,6 +42,14 @@ Connect symptoms to checks, likely causes, and a safe recovery procedure.
 ## Exercises
 
 Offer small variations that do not require unrelated advanced knowledge.
+Number each exercise and put its answer in a collapsed block:
+
+1. Question?
+
+    ??? success "Answer"
+        Short, direct answer.
+
+Keep lessons concise: prefer commands, tables, and short notes over prose.
 
 ## Key Takeaways
 

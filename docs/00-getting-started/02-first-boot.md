@@ -2,150 +2,128 @@
 
 ## Overview
 
-Boot an existing operating system, collect a read-only inventory, and shut down
-without corrupting storage.
+Boot the installed OS, collect a read-only inventory, and shut down cleanly.
 
 ## Learning Objectives
 
-- Identify distribution, kernel, architecture, memory, mounts, and storage.
-- Prove which block device supplies `/` and distinguish SD from eMMC.
-- Collect boot errors and perform a clean shutdown.
+- Record distribution, kernel, architecture, memory, mounts, and storage.
+- Prove which device supplies `/` and distinguish SD from eMMC.
+- Find boot warnings and shut down without corrupting storage.
 
 ## Prerequisites
 
-[Lesson 01](01-board-overview.md), a known-safe supply, and bootable eMMC.
-Remove microSD **while powered off** to make this experiment unambiguous.
-Use a UART console, local display/keyboard, or an already configured SSH path.
-If no login credentials are known, consult the installed image's release notes
-or the previous owner; use microSD recovery rather than guess passwords.
+[Lesson 01](01-board-overview.md), a safe supply, and bootable eMMC. Remove
+microSD **while powered off**. You need UART, a local console, or working SSH.
+If credentials are unknown, use the image's release notes or
+[microSD recovery](03-microsd-boot.md); do not guess passwords.
 
 ## Theory
 
-Boot activity includes ROM/U-Boot, kernel startup, filesystem mounting, and
-services. User LEDs may indicate heartbeat/storage/CPU activity, but their
-triggers depend on the image and are not a universal boot-success code.
-Serial output is more informative than an LED pattern.
-
-Distribution and kernel are independently versioned. CPU architecture reported
-by `uname -m` is the kernel's architecture, not proof that an arbitrary binary
-matches the target's libc or ABI.
+LED patterns depend on the image's triggers and are not a universal boot code;
+UART output is more informative. Distribution and kernel are versioned
+independently. `uname -m` (commonly `armv7l`) reports the kernel's architecture,
+not whether a given binary matches the target's libc/ABI.
 
 ## Hands-on Lab
 
-1. **Powered off:** disconnect unnecessary peripherals/capes. Connect recovery
-   UART correctly if available. Connect Ethernet to the home router/switch.
-2. Apply power. Look for the power indicator and boot activity; wait for a login
-   prompt or services. Do not assume every image exposes USB networking or boots
-   in a fixed number of seconds.
-3. Log in using the configured account. Run on **BBB**:
+1. **Powered off:** remove unnecessary peripherals, attach UART and Ethernet.
+2. Power on and wait for a login prompt.
+3. **BBB**, software and memory:
 
-   ```bash
-   cat /etc/os-release
-   uname -a
-   uname -m
-   free -h
-   ```
+    ```bash
+    cat /etc/os-release
+    uname -a
+    free -h
+    ```
 
-   `/etc/os-release` names the distribution; `uname -a` records kernel release
-   and build metadata; `uname -m` commonly reports `armv7l` on BBB Linux.
-   `free -h` distinguishes total/used/available RAM and swap. Available memory
-   includes reclaimable cache; nominal 512 MB is not all available to applications.
-4. **BBB**, inspect devices and mounts:
+    Expect less than 512 MB total; the kernel reserves some memory.
 
-   ```bash
-   lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
-   findmnt /
-   df -h
-   cat /proc/cmdline
-   ```
+4. **BBB**, storage and root:
 
-   `lsblk` shows disks and partitions; older util-linux may require `MOUNTPOINT`
-   instead of `MOUNTPOINTS`. `findmnt /` identifies the actual root mount.
-   `df -h` reports filesystem capacity, not raw disk capacity. The kernel command
-   line may use a UUID or PARTUUID rather than a literal device name.
-5. **BBB**, identify MMC devices without assuming numbering:
+    ```bash
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
+    findmnt /
+    df -h
+    cat /proc/cmdline
+    ```
 
-   ```bash
-   for device in /sys/block/mmcblk*; do
-       [ -r "$device/device/type" ] || continue
-       printf '%s: ' "${device##*/}"
-       cat "$device/device/type"
-       cat "$device/device/name"
-   done
-   ```
+    Older util-linux may need `MOUNTPOINT`. `root=` may be a UUID or PARTUUID.
 
-   The card `type` normally reports `MMC` for eMMC and `SD` for microSD.
-   Correlate these results with size, `lsblk`, and `findmnt`; `mmcblkNboot0/1`
-   are eMMC boot areas, not the main user-area partitions. Stop if observations
-   disagree.
-6. **BBB**, inspect logs:
+5. **BBB**, identify MMC devices without trusting numbering:
 
-   ```bash
-   dmesg
-   journalctl -b -p warning --no-pager
-   ```
+    ```bash
+    for device in /sys/block/mmcblk*; do
+        [ -r "$device/device/type" ] || continue
+        printf '%s: %s %s\n' "${device##*/}" \
+          "$(cat "$device/device/type")" "$(cat "$device/device/name")"
+    done
+    ```
 
-   `dmesg` is the kernel ring buffer; `journalctl -b` selects this boot on systemd
-   images. Permission restrictions may require `sudo dmesg` or authorized journal
-   group membership. On non-systemd images, inspect their configured logs.
-   A warning is a clue, not automatically a fatal error.
-7. Optionally run the repository's read-only inventory utility from its root:
+    `MMC` is eMMC, `SD` is microSD. `mmcblkNboot0/1` are eMMC boot areas.
 
-   ```bash
-   bash scripts/target/board-info.sh
-   ```
+6. **BBB**, warnings (may need `sudo`; `journalctl` requires systemd):
 
-8. **BBB**, after saving work:
+    ```bash
+    dmesg --level=err,warn
+    journalctl -b -p warning --no-pager
+    ```
 
-   ```bash
-   sudo shutdown -h now
-   ```
+7. Optional, from the repository root: `bash scripts/target/board-info.sh`.
+8. **BBB**, shut down and wait for the halt message before removing power:
 
-   Wait for the console's halt/power-down message and storage activity to stop
-   before disconnecting power. Network disappearance alone does not prove halt.
+    ```bash
+    sudo shutdown -h now
+    ```
 
 ## How It Works
 
-The kernel exposes device topology through sysfs, mounts through the VFS, and
-memory/process state through procfs. A clean shutdown stops services, flushes
-pending writes, and unmounts filesystems. Removing power during writes can damage
-the filesystem even when applications appeared finished.
+sysfs exposes device topology, the VFS tracks mounts, and procfs exposes memory
+and process state. Shutdown stops services, flushes writes, and unmounts
+filesystems; cutting power mid-write can corrupt them.
 
 ## Verification
 
-Save actual distribution/kernel information, observed MMC `type` and size,
-`findmnt /`, and important warnings. With no microSD inserted and a normal
-block-backed root mount, correlate the root source with the MMC device; do not
-claim eMMC boot solely from an LED. UART should show orderly shutdown.
+Save the actual OS/kernel strings, MMC types and sizes, `findmnt /`, and notable
+warnings. With no card inserted, `/` resolves to the `MMC` device. UART shows an
+orderly halt.
 
 ## Troubleshooting
 
-- **No LEDs or repeated resets:** inspect supply, cable, connector, and power
-  budget before replacing software.
-- **No login or SSH address:** use UART/local console. DHCP lease information
-  comes from your router; no fixed IP is assumed.
-- **eMMC does not boot:** follow [microSD recovery](03-microsd-boot.md), not an
-  unverified disk-writing command.
-- **Root appears as overlay or mapper device:** inspect `findmnt`, `lsblk`, and
-  the backing mounts before deciding which storage holds the root filesystem.
+| Symptom | Check |
+| --- | --- |
+| No LEDs or repeated resets | Supply, cable, connector, power budget |
+| No login or unknown IP | Use UART; find the DHCP lease on the router |
+| eMMC does not boot | [microSD recovery](03-microsd-boot.md) |
+| Root is overlay/mapper | Inspect `findmnt` and `lsblk` for the backing device |
 
 ## Exercises
 
-Explain why `df` and `lsblk` show different capacities. Identify one kernel
-warning and determine whether the related device is actually needed in this lab.
+1. Why do `df` and `lsblk` report different sizes?
+
+    ??? success "Answer"
+        `lsblk` shows raw disk/partition size; `df` shows the filesystem's
+        usable capacity after metadata, journal, and reserved blocks.
+
+2. Pick one kernel warning. Does it matter for this lab?
+
+    ??? success "Answer"
+        It depends on the device. A warning about an unused peripheral (for
+        example an absent cape or HDMI sink) is usually harmless here; storage
+        or power warnings are not. Trace the message to its driver before
+        deciding.
 
 ## Key Takeaways
 
-Observe running software and root media rather than infer them from defaults.
-Read-only inventory is the baseline for every later experiment.
+Observe the running software and root media rather than infer them. This
+read-only inventory is the baseline for every later experiment.
 
 ## Further Reading
 
 - [BeagleBoard getting started](https://www.beagleboard.org/getting-started)
 - [util-linux upstream](https://github.com/util-linux/util-linux)
-- [systemd journalctl manual](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+- [journalctl manual](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
 
 ## Lab Status
 
-**Documented but not tested.** No actual eMMC boot, inventory output, or shutdown
-has been verified on physical BBB hardware.
+**Documented but not tested.** No eMMC boot or inventory has been verified on
+physical hardware.

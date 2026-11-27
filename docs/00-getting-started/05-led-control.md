@@ -2,142 +2,114 @@
 
 ## Overview
 
-Use Linux's LED subsystem to control one onboard user LED from the shell and C,
-without manipulating GPIO registers or wiring external hardware.
+Control one onboard user LED through the Linux LED subsystem from Bash and C,
+without touching GPIO registers or external wiring.
 
 ## Learning Objectives
 
-- Discover actual LED names and active triggers.
-- Switch between manual brightness and kernel timer control.
+- Discover actual LED names and triggers.
+- Switch between manual brightness and the kernel `timer` trigger.
 - Build a C program using `open()`, `write()`, and `close()`.
-- Restore the original trigger after the experiment.
+- Restore the original state afterward.
 
 ## Prerequisites
 
-[Lesson 02](02-first-boot.md) or working microSD Linux from
-[Lesson 03](03-microsd-boot.md); Bash and standard utilities on BBB.
-For C, a native compiler and Make (`build-essential` on Debian). No
-cross-compiler is required yet. Appropriate permission is needed for sysfs writes.
-eMMC installation is not required.
+Running Linux from [Lesson 02](02-first-boot.md) or [Lesson 03](03-microsd-boot.md),
+`sudo`, and for C a native compiler and Make (`build-essential`).
 
 !!! warning "Observe before changing"
-    Replacing a trigger temporarily removes that LED's heartbeat/storage indicator.
-    Choose one onboard user LED, not an unrelated device's LED. Do not run these
-    commands against a development host's real LEDs.
+    Changing a trigger disables that LED's heartbeat/storage indicator until
+    restored. Never run these commands against a development host's LEDs.
 
 ## Theory
 
-Linux exposes LEDs in `/sys/class/leds/`. Names vary with kernel and Device Tree;
-do not hardcode `beaglebone:green:usr0`. The four board user LEDs are USR0-USR3,
-but map Linux names to physical LEDs through observation/manual.
+LEDs appear in `/sys/class/leds/`; names vary by kernel and Device Tree, so do
+not hardcode `beaglebone:green:usr0`.
 
-`brightness` accepts zero through `max_brightness`. `trigger` lists available
-event sources with the active one in brackets, such as `[heartbeat]`.
-Common BBB images use heartbeat, CPU, and MMC activity, but assignments vary.
-`none` disables automatic events; a `timer` trigger, when available, creates
-`delay_on` and `delay_off` attributes in milliseconds.
+| Attribute | Meaning |
+| --- | --- |
+| `brightness` | `0` to `max_brightness` |
+| `trigger` | Available triggers; active one in `[brackets]` |
+| `delay_on` / `delay_off` | Appear with `timer`; milliseconds |
 
-The LED subsystem is a class API backed by a driver. General GPIO character
-devices are a different API and may refuse lines already owned by the LED driver.
+`none` gives manual control. The LED class is separate from the GPIO character
+device, which may refuse lines owned by the LED driver.
 
 ## Hands-on Lab
 
-1. **BBB**, discover rather than guess:
+1. **BBB**, discover:
 
-   ```bash
-   ls -1 /sys/class/leds/
-   for led in /sys/class/leds/*; do
-       [ -r "$led/trigger" ] || continue
-       printf '%s: ' "${led##*/}"
-       cat "$led/trigger"
-   done
-   ```
+    ```bash
+    for led in /sys/class/leds/*; do
+        printf '%s: %s\n' "${led##*/}" "$(cat "$led/trigger")"
+    done
+    ```
 
-2. Select one actual onboard LED directory. Replace the example name:
+2. Select one LED and save its state:
 
-   ```bash
-   LED='/sys/class/leds/ACTUAL_DISCOVERED_NAME'
-   cat "$LED/trigger"
-   cat "$LED/brightness"
-   cat "$LED/max_brightness"
-   ORIGINAL_TRIGGER=$(sed -n 's/.*\[\([^]]*\)\].*/\1/p' "$LED/trigger")
-   ORIGINAL_BRIGHTNESS=$(cat "$LED/brightness")
-   MAXIMUM=$(cat "$LED/max_brightness")
-   ```
+    ```bash
+    LED='/sys/class/leds/ACTUAL_DISCOVERED_NAME'
+    ORIGINAL_TRIGGER=$(sed -n 's/.*\[\([^]]*\)\].*/\1/p' "$LED/trigger")
+    ORIGINAL_BRIGHTNESS=$(cat "$LED/brightness")
+    MAXIMUM=$(cat "$LED/max_brightness")
+    ```
 
-   Save the trigger and brightness before writing. If using a customized trigger,
-   record its extra parameters too; these examples restore the trigger name and
-   brightness snapshot, not timer delays or other trigger-specific settings.
-3. **BBB**, manually turn on, then off:
+    This saves the trigger name and brightness, not trigger-specific parameters.
 
-   ```bash
-   printf 'none\n' | sudo tee "$LED/trigger" >/dev/null
-   printf '%s\n' "$MAXIMUM" | sudo tee "$LED/brightness" >/dev/null
-   cat "$LED/brightness"
-   printf '0\n' | sudo tee "$LED/brightness" >/dev/null
-   ```
+3. **Manual on/off.** `sudo echo x > file` fails because your shell does the
+   redirection; use `sudo tee`:
 
-   `sudo echo ... > file` is not sufficient: your unprivileged shell performs
-   the redirection. `sudo tee` privileges only the actual write.
-4. From the repository root **on BBB**, run the finite Bash lab:
+    ```bash
+    echo none | sudo tee "$LED/trigger" >/dev/null
+    echo "$MAXIMUM" | sudo tee "$LED/brightness" >/dev/null
+    echo 0 | sudo tee "$LED/brightness" >/dev/null
+    ```
 
-   ```bash
-   sudo bash labs/00-getting-started/led-blink/blink.sh "$LED" 6
-   ```
+4. **Bash blink** (6 cycles, ~250 ms, restores its entry state on exit/INT/TERM),
+   from the repository root:
 
-   The script snapshots its entry state, blinks at approximately 250 ms on/off,
-   and restores that state on exit or handled INT/TERM. Since you already selected
-   `none`, it restores `none`; the final step restores your original pre-lab trigger.
+    ```bash
+    sudo bash labs/00-getting-started/led-blink/blink.sh "$LED" 6
+    ```
 
-   ```bash
-   --8<-- "labs/00-getting-started/led-blink/blink.sh"
-   ```
+    ```bash
+    --8<-- "labs/00-getting-started/led-blink/blink.sh"
+    ```
 
-5. If `timer` appears in the available triggers, **BBB**:
+5. **Kernel timer**, if `timer` is listed:
 
-   ```bash
-   printf 'timer\n' | sudo tee "$LED/trigger" >/dev/null
-   cat "$LED/delay_on" "$LED/delay_off"
-   printf '250\n' | sudo tee "$LED/delay_on" >/dev/null
-   printf '750\n' | sudo tee "$LED/delay_off" >/dev/null
-   ```
+    ```bash
+    echo timer | sudo tee "$LED/trigger" >/dev/null
+    echo 250 | sudo tee "$LED/delay_on" >/dev/null
+    echo 750 | sudo tee "$LED/delay_off" >/dev/null
+    ```
 
-   Observe repeated flashes without a userspace loop. If the LED stays dark,
-   set a nonzero brightness after selecting `timer`. Writing zero brightness can
-   disable the timer trigger, so inspect `trigger` again after any zero write.
-6. **BBB**, return to manual control and build/run C:
+    It blinks with no userspace loop. Writing `0` to `brightness` disables it.
 
-   ```bash
-   printf 'none\n' | sudo tee "$LED/trigger" >/dev/null
-   make -C labs/00-getting-started/led-blink
-   sudo labs/00-getting-started/led-blink/led-blink "$LED" 6
-   ```
+6. **C version**, built natively on BBB:
 
-   Native x86 compilation on OptiPlex validates code but produces an x86 binary,
-   **not** a BBB executable. Cross-compilation comes later.
-7. **BBB**, restore the original pre-lab state:
+    ```bash
+    echo none | sudo tee "$LED/trigger" >/dev/null
+    make -C labs/00-getting-started/led-blink
+    sudo labs/00-getting-started/led-blink/led-blink "$LED" 6
+    ```
 
-   ```bash
-   printf '%s\n' "$ORIGINAL_BRIGHTNESS" | sudo tee "$LED/brightness" >/dev/null
-   printf '%s\n' "$ORIGINAL_TRIGGER" | sudo tee "$LED/trigger" >/dev/null
-   cat "$LED/trigger"
-   ```
+    An x86 build on a host only validates the code; it will not run on BBB.
 
-   Restore brightness **before** the trigger: writing zero afterward could disable
-   a restored trigger. Reapply custom parameters if you recorded them. SIGKILL,
-   power loss, or device removal prevents automatic restoration.
+7. **Restore** brightness first, then trigger (a later `0` write would disable it):
+
+    ```bash
+    echo "$ORIGINAL_BRIGHTNESS" | sudo tee "$LED/brightness" >/dev/null
+    echo "$ORIGINAL_TRIGGER" | sudo tee "$LED/trigger" >/dev/null
+    cat "$LED/trigger"
+    ```
 
 ## How It Works
 
-`open()` obtains a file descriptor to a sysfs attribute; `write()` passes a text
-value to the kernel driver; `close()` releases the descriptor. Each update opens
-at offset zero. A sysfs attribute is not an ordinary persistent configuration
-file, and writes can fail if the driver rejects a value.
-
-The C example validates inputs, checks I/O errors, handles INT/TERM through a
-`sig_atomic_t` flag, and restores state in normal execution rather than doing
-unsafe I/O inside a signal handler. `nanosleep()` yields between writes; this is
-not a real-time waveform generator.
+`open()` returns a descriptor to a sysfs attribute, `write()` passes text to the
+driver, and `close()` releases it. The C program validates input, checks every
+I/O error, sets a `sig_atomic_t` flag on INT/TERM, and restores state outside
+the handler. `nanosleep()` timing is approximate, not real-time.
 
 ```c
 --8<-- "labs/00-getting-started/led-blink/led-blink.c"
@@ -149,53 +121,65 @@ not a real-time waveform generator.
 
 ## Verification
 
-On BBB, observe the selected LED respond to maximum/zero and six blink cycles.
-`cat "$LED/trigger"` should show the intended active trigger in brackets after
-restoration. With timer active, it should blink after the shell command has exited.
-Timings are approximate and scheduling-dependent.
+**BBB:** the LED follows on/off, blinks six times, keeps blinking under `timer`
+after the shell returns, and `trigger` shows the original value after restore.
 
-On a **development host**, without sudo or real LED writes:
+**Development host** (fixtures only, no real LEDs):
 
 ```bash
 make -C labs/00-getting-started/led-blink
 python -m unittest discover -s tests -v
 ```
 
-Fixtures verify maximum-brightness writes, completion restoration, invalid
-arguments/missing attributes, and TERM restoration for Bash/C. Regular-file
-fixtures do not emulate kernel trigger semantics or prove electrical output.
+Fixtures test writes, restoration, invalid input, and TERM handling; they don't
+emulate kernel trigger behavior.
 
 ## Troubleshooting
 
-- **Permission denied:** verify selected path/permissions; use scoped sudo on BBB.
-- **No LEDs directory or unexpected names:** inspect kernel/Device Tree and
-  booted image. Do not substitute arbitrary GPIO numbers.
-- **Manual brightness immediately changes:** confirm active trigger is `none`.
-- **No timer attributes:** select an available timer trigger first; if absent,
-  kernel support may not be enabled. Bash blinking remains available.
-- **Exec format error:** an x86 or incompatible ABI binary was copied to BBB;
-  build natively on the target for this lesson.
+| Symptom | Check |
+| --- | --- |
+| Permission denied | Path and `sudo tee` usage |
+| Unexpected or missing LED names | Kernel/Device Tree of the booted image; don't use raw GPIO numbers |
+| Brightness changes by itself | Trigger is not `none` |
+| No `delay_on`/`delay_off` | Select `timer` first; it may not be built into the kernel |
+| `Exec format error` | Host binary copied to BBB; rebuild on the target |
 
 ## Exercises
 
-Change cycle count, compare shell versus timer CPU activity, and explain why a
-new kernel module is unnecessary for this experiment.
+1. Change the cycle count. What happens with `0` or `-1`?
+
+    ??? success "Answer"
+        Both programs validate the count and exit with a usage error without
+        writing to the LED.
+
+2. Compare CPU use of the Bash loop and the `timer` trigger.
+
+    ??? success "Answer"
+        The Bash loop wakes a process and spawns writes every cycle, visible in
+        `top`. The `timer` trigger runs inside the kernel with no userspace
+        process, so its cost is negligible.
+
+3. Why is no new kernel module needed for this experiment?
+
+    ??? success "Answer"
+        The existing LED driver already exposes brightness and triggers through
+        sysfs. A module is only justified when no existing interface fits.
 
 ## Key Takeaways
 
-Subsystem APIs hide board details. Discover attributes, preserve state, check
-errors, and distinguish host code validation from hardware verification.
+Subsystem APIs hide board details. Discover attributes, save and restore state,
+check errors, and separate host validation from hardware verification.
 
 ## Further Reading
 
 - [Kernel LED class documentation](https://docs.kernel.org/leds/leds-class.html)
-- [Linux open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
-- [Linux write(2)](https://man7.org/linux/man-pages/man2/write.2.html)
-- [Linux close(2)](https://man7.org/linux/man-pages/man2/close.2.html)
+- [open(2)](https://man7.org/linux/man-pages/man2/open.2.html),
+  [write(2)](https://man7.org/linux/man-pages/man2/write.2.html),
+  [close(2)](https://man7.org/linux/man-pages/man2/close.2.html)
 
 ## Lab Status
 
 **Validated in a development environment:** Bash/C fixture tests, native C
-compilation, and ShellCheck are provided and executed for the initial release.
-**Not verified on physical BBB hardware:** LED names, kernel timer behavior,
-visible output, and timing require your board/image evidence.
+compilation, and ShellCheck pass in CI.
+**Not verified on physical BBB hardware:** LED names, timer behavior, and
+visible output require board evidence.

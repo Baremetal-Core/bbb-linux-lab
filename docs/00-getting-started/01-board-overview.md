@@ -2,55 +2,42 @@
 
 ## Overview
 
-Identify the board's interfaces without wiring peripherals, then trace how a
-processor becomes a running Linux system.
+Identify the board's interfaces without wiring anything, then trace how the SoC
+becomes a running Linux system.
 
 ## Learning Objectives
 
 - Locate power, Ethernet, USB, UART, storage, P8/P9, and user LEDs.
-- Distinguish the SoC, bootloader, kernel, and root filesystem.
-- Record hardware revision and avoid assuming eMMC capacity.
+- Distinguish SoC, bootloader, kernel, and root filesystem.
+- Record the hardware revision instead of assuming eMMC capacity.
 
 ## Prerequisites
 
 A powered-off BBB and the [hardware safety checklist](../prerequisites.md).
-No software packages or root permissions are needed for visual inspection.
 
 ## Theory
 
-The BBB uses a TI AM335x-family SoC (commonly AM3358) with an ARM Cortex-A8
-processor rated up to 1 GHz. A SoC combines the CPU with controllers such as
-UART, Ethernet MAC, and MMC; external RAM, storage, power management, and an
-Ethernet PHY complete the board.
-
-BBB has 512 MB DDR3-family RAM. Early and later revisions can have different
-eMMC capacities; inspect your board and Linux rather than assuming 4 GB.
-Linux reports usable memory below nominal installed RAM due to reservations.
-The running CPU frequency also depends on software and power-management policy.
-
-Unlike a typical microcontroller running one firmware image without a full
-virtual-memory OS, this board normally runs a bootloader, Linux kernel, and
-many isolated userspace processes. An MCU can run an RTOS; Linux is not inherently
-a hard real-time replacement. AM335x PRUs are a later topic.
+BBB uses a TI AM335x SoC (commonly AM3358, Cortex-A8 up to 1 GHz) with 512 MB
+DDR3. eMMC capacity differs between revisions; check yours. Unlike an MCU
+running a single firmware image, the board runs a bootloader, a kernel, and
+many isolated userspace processes.
 
 | Interface | Purpose and caveat |
 | --- | --- |
-| DC jack / mini-USB | Power inputs; follow the board manual's ratings and polarity |
-| USB Type-A host | Connect USB peripherals, subject to power limits |
-| mini-USB device | Connect to a host PC; gadget networking/serial depends on the image |
-| RJ45 Ethernet | 10/100 Mbps LAN, normally via router/switch |
-| UART0 debug header | 3.3 V TTL serial console, **not** RS-232 |
-| microSD slot | Removable boot/recovery storage |
-| Onboard eMMC | Non-removable storage, separate from microSD |
-| P8/P9 | Expansion headers with power and multiplexed signals; not all pins are GPIO |
-| USR0-USR3 | Four user LEDs; power and Ethernet LEDs are separate |
-| BOOT / reset / power buttons | Boot-mode selection, reset, and power-management input are different |
+| DC jack / mini-USB | Power; follow the manual's ratings and polarity |
+| USB Type-A host | USB peripherals, within power limits |
+| mini-USB device | To a host PC; gadget serial/network is image-dependent |
+| RJ45 Ethernet | 10/100 Mbps LAN |
+| UART0 debug header | 3.3 V TTL console, **not** RS-232 |
+| microSD / eMMC | Removable vs onboard storage |
+| P8/P9 | Multiplexed signals; not every pin is free GPIO |
+| USR0-USR3 | User LEDs, separate from power/Ethernet LEDs |
+| BOOT / reset / power | Boot selection, reset, power management: three different things |
 
-See the **official labeled connector and component diagrams** in
-[BeagleBone Black overview](https://docs.beagleboard.org/boards/beaglebone/black/ch04.html#board-component-locations).
-Use the [system reference manual](https://docs.beagleboard.org/boards/beaglebone/black/index.html)
-for revision-specific wiring and boot-mode details. We link the original diagrams
-rather than reproduce unlicensed figures.
+Use the official
+[component diagrams](https://docs.beagleboard.org/boards/beaglebone/black/ch04.html#board-component-locations)
+and [system reference manual](https://docs.beagleboard.org/boards/beaglebone/black/index.html)
+for revision-specific details.
 
 ```mermaid
 flowchart LR
@@ -61,68 +48,67 @@ flowchart LR
   R --> U[PID 1 and applications]
 ```
 
-The ROM is built into the SoC. A small first-stage loader typically initializes
-RAM, then U-Boot loads the kernel and board description. Linux mounts a root
-filesystem and starts userspace. Exact stage names and storage locations depend
-on the image. Bootloader media and root filesystem media can differ.
+SPL initializes RAM, U-Boot loads the kernel and Device Tree, and Linux mounts
+root. Bootloader media and root media can differ.
 
 ## Hands-on Lab
 
-1. **Powered off:** record the PCB revision printed on the board; photograph it
-   for your private inventory. Compare the board to the official diagrams.
-2. Identify the mini-USB device connector and Type-A host socket. Explain which
-   cable connects to a computer and which socket accepts a keyboard.
-3. Find microSD, eMMC, UART debug header, P8/P9, BOOT, reset, power, and USR LEDs.
+1. **Powered off:** record the printed PCB revision.
+2. Find each interface in the table on the board, using the official diagrams.
    Do not attach GPIO wiring.
-4. If Linux already runs, **BBB**, inspect its reported model:
+3. If Linux already runs, **BBB**:
 
-   ```bash
-   tr -d '\0' < /proc/device-tree/model
-   printf '\n'
-   ```
+    ```bash
+    tr -d '\0' < /proc/device-tree/model; echo
+    ```
 
-   This is the model selected by Device Tree, not guaranteed revision detection.
-   If unavailable, use physical markings and the UART log.
-5. Sketch the boot chain and label where RAM, persistent storage, kernel, and
-   application code participate.
+    This is the Device Tree's model string, not reliable revision detection.
+
+4. Sketch the boot chain, marking where RAM, storage, kernel, and applications
+   participate.
 
 ## How It Works
 
-Header pins are multiplexed SoC signals. A pin can serve GPIO, a serial bus,
-or another controller, but cannot safely be claimed by conflicting functions.
-Device Tree and drivers coordinate Linux's view of that hardware. Onboard
-eMMC and HDMI can occupy signals also exposed on the headers.
-
-BOOT changes ROM boot selection when sampled during a power-on reset. U-Boot
-can then apply its own search policy. Pressing reset is not necessarily equivalent
-to removing and reapplying power.
+Header pins are multiplexed SoC signals; one pin cannot safely serve conflicting
+functions. Device Tree and drivers coordinate this. eMMC and HDMI occupy some
+header signals. BOOT is sampled at power-on, so pressing reset is not the same
+as reapplying power.
 
 ## Verification
 
-You can point to each interface in the table, distinguish host/device USB, and
-describe every stage of the diagram. Your inventory contains an observed
-revision, not a guessed eMMC size or kernel version. If you ran the command,
-save its actual result rather than assume the expected board model.
+You can point to every interface, tell USB host from device, explain each boot
+stage, and your inventory contains an observed revision.
 
 ## Troubleshooting
 
-- **Different-looking board:** confirm it is BBB, not BeagleBone AI/AI-64 or a
-  compatible derivative, before using these instructions.
-- **Model does not match markings:** inspect the booted Device Tree and image;
-  do not trust software alone to identify PCB revision.
-- **Uncertain UART pins:** stop wiring and use the manual's orientation and pin
-  numbering. Never infer ground from connector position.
+| Symptom | Check |
+| --- | --- |
+| Board looks different | Confirm it is BBB, not AI/AI-64 or a derivative |
+| Model string disagrees with PCB | Trust the markings; software reflects the image's Device Tree |
+| Unsure of UART pins | Stop; use the manual's pin numbering, never guess ground |
 
 ## Exercises
 
-Explain why a Linux application usually survives unchanged when its board driver
-changes, and why an MCU firmware register write is not a safe GPIO technique
-on a running Linux board.
+1. Why does a Linux application usually keep working when its board driver
+   changes?
+
+    ??? success "Answer"
+        Applications use stable kernel interfaces (files, sysfs, ioctls,
+        sockets). The driver behind that interface can change without changing
+        the application.
+
+2. Why is writing GPIO registers directly, as in MCU firmware, unsafe on a
+   running Linux board?
+
+    ??? success "Answer"
+        The kernel owns that hardware. A direct write bypasses pinmux, locking,
+        and driver state, so it can conflict with the eMMC, HDMI, or other
+        drivers and corrupt their state.
 
 ## Key Takeaways
 
-Board hardware, boot software, and Linux userspace are distinct layers.
-Identification and electrical safety precede configuration.
+Hardware, boot software, and userspace are distinct layers. Identify the board
+and wire safely before configuring anything.
 
 ## Further Reading
 
@@ -132,5 +118,4 @@ Identification and electrical safety precede configuration.
 
 ## Lab Status
 
-**Documented but not tested.** No physical board inspection or boot evidence has
-been supplied. Record your board revision before hardware work.
+**Documented but not tested.** No physical board inspection has been recorded.
